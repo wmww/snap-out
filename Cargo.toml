@@ -1,6 +1,7 @@
 [package]
 name = "snap-out"
 version = "0.1.0"
+description = "Runs an external command from inside a classic snap, but first cleans the environment of modifications made by the snap"
 authors = ["William Wold <wm@wmww.sh>"]
 edition = "2018"
 
