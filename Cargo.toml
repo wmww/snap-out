@@ -1,0 +1,7 @@
+[package]
+name = "snap-out"
+version = "0.1.0"
+authors = ["William Wold <wm@wmww.sh>"]
+edition = "2018"
+
+[dependencies]
