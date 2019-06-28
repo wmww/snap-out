@@ -90,7 +90,10 @@ mod tests {
         let val_in_map = map.get(key);
         let expected_val = val.map(|v| OsString::from(v));
         if val_in_map != expected_val.as_ref() {
-            panic!("Key {:?} expected to map to {:?} but actually maps to {:?}", key, expected_val, val_in_map)
+            panic!(
+                "Key {:?} expected to map to {:?} but actually maps to {:?}",
+                key, expected_val, val_in_map
+            )
         }
     }
 
