@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate simple_error;
+
 mod arguments;
 mod command;
 mod environments;
