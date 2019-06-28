@@ -71,7 +71,6 @@ impl All {
 
 #[cfg(test)]
 mod tests {
-    // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
 
     fn assert_maps_to(map: &HashMap<OsString, OsString>, key: &str, val: Option<&str>) {
@@ -128,10 +127,8 @@ mod tests {
             vec![("USER", "alice"), ("DISPLAY", ":0")],
         ]);
         let result = All::detect(&process);
-        if let Err(_) = result {
-            assert!(true);
-        } else {
-            assert!(false);
+        if let Ok(result) = result {
+            panic!("Should have detected it was not in the snap: {:#?}", result)
         }
     }
 
@@ -142,10 +139,11 @@ mod tests {
             vec![("USER", "alice"), ("DISPLAY", ":0"), ("SNAP", "/snap")],
         ]);
         let result = All::detect(&process);
-        if let Err(_) = result {
-            assert!(true);
-        } else {
-            assert!(false);
+        if let Ok(result) = result {
+            panic!(
+                "Should have been unable to find the edge of the snap: {:#?}",
+                result
+            )
         }
     }
 }
