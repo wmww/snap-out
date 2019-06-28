@@ -1,5 +1,6 @@
 use super::process;
 use std::collections::HashMap;
+use std::error::Error;
 use std::ffi::{OsStr, OsString};
 
 /// The environment variable used to determine if the snap variables have been set
@@ -18,7 +19,7 @@ pub struct All {
 
 impl All {
     /// Detects relevant environments
-    pub fn detect(process: &process::Process) -> Result<Self, Box<std::error::Error>> {
+    pub fn detect(process: &process::Process) -> Result<Self, Box<Error>> {
         enum EnvResult {
             OutsideSnap(HashMap<OsString, OsString>),
             EdgeOfSnap {
@@ -26,6 +27,7 @@ impl All {
                 inside: HashMap<OsString, OsString>,
             },
         }
+
         // Recursively traverses up the process tree until it finds one clean of snap variables
         // Returns the environment directly outside of the snap, or None if the current environment
         // is alerady outside the snap
@@ -53,6 +55,7 @@ impl All {
                 }
             }
         }
+
         let my_env = process.get_env()?;
         let result = traverse_up_to_snap_boundry(process, my_env.clone())?;
         match result {
@@ -62,6 +65,87 @@ impl All {
                 myself: my_env,
             }),
             EnvResult::OutsideSnap(_) => bail!("Not inside a snap"),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    // Note this useful idiom: importing names from outer (for mod tests) scope.
+    use super::*;
+
+    fn assert_maps_to(map: &HashMap<OsString, OsString>, key: &str, val: Option<&str>) {
+        assert_eq!(
+            map.get(&OsString::from(key)),
+            val.map(|v| OsString::from(v)).as_ref()
+        );
+    }
+
+    #[test]
+    fn detects_correctly_when_at_snap_boundry() {
+        let process = process::mock::MockProcess::new(vec![
+            vec![("USER", "alice"), ("OUTSIDE", "1")],
+            vec![("USER", "alice"), ("SNAP", "/snap"), ("INSIDE", "2")],
+        ]);
+        let result = All::detect(&process);
+        if let Ok(envs) = result {
+            assert_maps_to(&envs.external, "OUTSIDE", Some("1"));
+            assert_maps_to(&envs.external, "INSIDE", None);
+
+            assert_maps_to(&envs.snap, "OUTSIDE", None);
+            assert_maps_to(&envs.snap, "INSIDE", Some("2"));
+
+            assert_maps_to(&envs.myself, "OUTSIDE", None);
+            assert_maps_to(&envs.myself, "INSIDE", Some("2"));
+        } else {
+            assert!(false);
+        }
+    }
+
+    #[test]
+    fn detects_correctly_when_multiple_layers_in_snap() {
+        let process = process::mock::MockProcess::new(vec![
+            vec![("USER", "alice")],
+            vec![("USER", "alice"), ("OUTSIDE", "1")],
+            vec![("USER", "alice"), ("SNAP", "/snap"), ("EDGE", "2")],
+            vec![("USER", "alice"), ("SNAP", "/snap")],
+            vec![("USER", "alice"), ("SNAP", "/snap"), ("MYSELF", "3")],
+        ]);
+        let result = All::detect(&process);
+        if let Ok(envs) = result {
+            assert_maps_to(&envs.external, "OUTSIDE", Some("1"));
+            assert_maps_to(&envs.snap, "EDGE", Some("2"));
+            assert_maps_to(&envs.myself, "MYSELF", Some("3"));
+        } else {
+            assert!(false);
+        }
+    }
+
+    #[test]
+    fn errors_when_not_in_snap() {
+        let process = process::mock::MockProcess::new(vec![
+            vec![("USER", "alice")],
+            vec![("USER", "alice"), ("DISPLAY", ":0")],
+        ]);
+        let result = All::detect(&process);
+        if let Err(_) = result {
+            assert!(true);
+        } else {
+            assert!(false);
+        }
+    }
+
+    #[test]
+    fn errors_when_cant_escape_snap() {
+        let process = process::mock::MockProcess::new(vec![
+            vec![("USER", "alice"), ("SNAP", "/snap")],
+            vec![("USER", "alice"), ("DISPLAY", ":0"), ("SNAP", "/snap")],
+        ]);
+        let result = All::detect(&process);
+        if let Err(_) = result {
+            assert!(true);
+        } else {
+            assert!(false);
         }
     }
 }

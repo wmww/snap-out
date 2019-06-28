@@ -32,7 +32,51 @@ impl Process for ProcfsProcess {
             })))
         }
     }
+
     fn get_env(&self) -> Result<HashMap<OsString, OsString>, Box<Error>> {
-        return Ok(self.process.environ()?);
+        Ok(self.process.environ()?)
+    }
+}
+
+#[cfg(test)]
+pub mod mock {
+    use super::*;
+    use std::rc::Rc;
+
+    #[derive(Clone)]
+    pub struct MockProcess {
+        env: Rc<HashMap<OsString, OsString>>,
+        parent: Option<Rc<MockProcess>>,
+    }
+
+    impl MockProcess {
+        pub fn new(envs: Vec<Vec<(&str, &str)>>) -> MockProcess {
+            assert!(envs.len() > 0);
+            let mut process: Option<MockProcess> = None;
+            for env in envs {
+                let mut map = HashMap::new();
+                for (var, val) in env {
+                    map.insert(OsString::from(var), OsString::from(val));
+                }
+                process = Some(MockProcess {
+                    env: Rc::new(map),
+                    parent: process.map(|p| Rc::new(p)),
+                });
+            }
+            process.unwrap()
+        }
+    }
+
+    impl Process for MockProcess {
+        fn get_parent(&self) -> Result<Option<Box<Process>>, Box<Error>> {
+            Ok(self
+                .parent
+                .as_ref()
+                .map(|p| Box::new((**p).clone()) as Box<Process>))
+        }
+
+        fn get_env(&self) -> Result<HashMap<OsString, OsString>, Box<Error>> {
+            Ok((*self.env).clone())
+        }
     }
 }
