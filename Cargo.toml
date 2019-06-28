@@ -6,3 +6,4 @@ authors = ["William Wold <wm@wmww.sh>"]
 edition = "2018"
 
 [dependencies]
+procfs = "*"
