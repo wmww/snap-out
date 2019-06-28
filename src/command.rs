@@ -6,14 +6,20 @@ pub fn run(cmd: String, args: &[String]) -> i32 {
             if let Some(exit_code) = status.code() {
                 return exit_code;
             } else {
-                eprintln!("{}: child process terminated without an exit code", env!("CARGO_PKG_NAME"));
+                eprintln!(
+                    "{}: child process terminated without an exit code",
+                    env!("CARGO_PKG_NAME")
+                );
                 return 1;
             }
         }
         Err(error) => {
-            eprintln!("{}: Failed to run child process: {}", env!("CARGO_PKG_NAME"), error);
+            eprintln!(
+                "{}: Failed to run child process: {}",
+                env!("CARGO_PKG_NAME"),
+                error
+            );
             return 1;
         }
     }
 }
-
