@@ -1,5 +1,4 @@
-extern crate procfs;
-
+use super::process;
 use std::collections::HashMap;
 use std::ffi::{OsStr, OsString};
 
@@ -19,7 +18,7 @@ pub struct All {
 
 impl All {
     /// Detects relevant environments
-    pub fn detect() -> Result<Self, Box<std::error::Error>> {
+    pub fn detect(process: &process::Process) -> Result<Self, Box<std::error::Error>> {
         enum EnvResult {
             OutsideSnap(HashMap<OsString, OsString>),
             EdgeOfSnap {
@@ -31,19 +30,18 @@ impl All {
         // Returns the environment directly outside of the snap, or None if the current environment
         // is alerady outside the snap
         fn traverse_up_to_snap_boundry(
-            process: &procfs::Process,
+            process: &process::Process,
             env: HashMap<OsString, OsString>,
         ) -> Result<EnvResult, Box<std::error::Error>> {
             if !env.contains_key(OsStr::new(SNAP_SENTINEL_VAR)) {
                 Ok(EnvResult::OutsideSnap(env))
             } else {
-                let parent_pid = process.stat.ppid;
-                if parent_pid == 0 {
-                    bail!("Could not find a process outside of the snap");
-                }
-                let parent_process = procfs::Process::new(parent_pid)?;
-                let parent_env = parent_process.environ()?;
-                match traverse_up_to_snap_boundry(&parent_process, parent_env)? {
+                let parent_process = match process.get_parent()? {
+                    Some(p) => p,
+                    None => bail!("Could not find a process outside of the snap"),
+                };
+                let parent_env = parent_process.get_env()?;
+                match traverse_up_to_snap_boundry(&*parent_process, parent_env)? {
                     result @ EnvResult::EdgeOfSnap {
                         outside: _,
                         inside: _,
@@ -55,9 +53,8 @@ impl All {
                 }
             }
         }
-        let process = procfs::Process::myself()?;
-        let my_env = process.environ()?;
-        let result = traverse_up_to_snap_boundry(&process, my_env.clone())?;
+        let my_env = process.get_env()?;
+        let result = traverse_up_to_snap_boundry(process, my_env.clone())?;
         match result {
             EnvResult::EdgeOfSnap { outside, inside } => Ok(All {
                 external: outside,
