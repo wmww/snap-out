@@ -78,7 +78,7 @@ mod tests {
     fn parses_command_with_no_args() {
         assert_eq!(
             parse(vec!["snap-out", "ls"].iter()),
-            Parsed::RunCommand{
+            Parsed::RunCommand {
                 command: "ls".to_owned(),
                 args: vec![],
             }
@@ -89,7 +89,7 @@ mod tests {
     fn parses_command_with_args() {
         assert_eq!(
             parse(vec!["snap-out", "ls", "..", "-a"].iter()),
-            Parsed::RunCommand{
+            Parsed::RunCommand {
                 command: "ls".to_owned(),
                 args: vec!["..", "-a"].iter().map(|s| s.to_string()).collect(),
             }
@@ -98,14 +98,8 @@ mod tests {
 
     #[test]
     fn parses_show_help() {
-        assert_eq!(
-            parse(vec!["snap-out", "--help"].iter()),
-            Parsed::ShowHelp,
-        );
-        assert_eq!(
-            parse(vec!["snap-out", "-h"].iter()),
-            Parsed::ShowHelp,
-        );
+        assert_eq!(parse(vec!["snap-out", "--help"].iter()), Parsed::ShowHelp,);
+        assert_eq!(parse(vec!["snap-out", "-h"].iter()), Parsed::ShowHelp,);
     }
 
     #[test]
@@ -114,33 +108,30 @@ mod tests {
             parse(vec!["snap-out", "--version"].iter()),
             Parsed::ShowVersion,
         );
-        assert_eq!(
-            parse(vec!["snap-out", "-v"].iter()),
-            Parsed::ShowVersion,
-        );
+        assert_eq!(parse(vec!["snap-out", "-v"].iter()), Parsed::ShowVersion,);
     }
 
     #[test]
     fn errors_on_bad_arg() {
         match parse(vec!["snap-out", "--bad"].iter()) {
             Parsed::Error(_) => (),
-            result @ _ => panic!("Should have been an error, but instead returned {:?}", result),
+            result @ _ => panic!(
+                "Should have been an error, but instead returned {:?}",
+                result
+            ),
         };
         match parse(vec!["snap-out", "-x"].iter()) {
             Parsed::Error(_) => (),
-            result @ _ => panic!("Should have been an error, but instead returned {:?}", result),
+            result @ _ => panic!(
+                "Should have been an error, but instead returned {:?}",
+                result
+            ),
         };
     }
 
     #[test]
     fn none_on_no_args() {
-        assert_eq!(
-            parse(vec!["snap-out"].iter()),
-            Parsed::None,
-        );
-        assert_eq!(
-            parse((vec![] as Vec<&str>).iter()),
-            Parsed::None,
-        );
+        assert_eq!(parse(vec!["snap-out"].iter()), Parsed::None,);
+        assert_eq!(parse((vec![] as Vec<&str>).iter()), Parsed::None,);
     }
 }

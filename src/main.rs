@@ -5,6 +5,7 @@ mod command;
 mod environments;
 mod options;
 mod process;
+mod variable;
 
 fn main() {
     let (cmd, args) = options::handle();

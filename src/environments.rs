@@ -1,4 +1,5 @@
 use super::process;
+use super::variable::Variable;
 use std::collections::HashMap;
 use std::error::Error;
 use std::ffi::{OsStr, OsString};
@@ -66,6 +67,28 @@ impl All {
             }),
             EnvResult::OutsideSnap(_) => bail!("Not inside a snap"),
         }
+    }
+
+    fn consolidate(&self) -> HashMap<OsString, Variable> {
+        let mut result = HashMap::new();
+        for key in self
+            .external
+            .keys()
+            .chain(self.snap.keys())
+            .chain(self.myself.keys())
+        {
+            if !result.contains_key(key) {
+                result.insert(
+                    key.clone(),
+                    Variable::new(
+                        self.external.get(key).map(Clone::clone),
+                        self.snap.get(key).map(Clone::clone),
+                        self.myself.get(key).map(Clone::clone),
+                    ),
+                );
+            }
+        }
+        result
     }
 }
 
@@ -145,5 +168,124 @@ mod tests {
                 result
             )
         }
+    }
+
+    impl All {
+        fn mock(
+            external: Vec<(&str, &str)>,
+            snap: Vec<(&str, &str)>,
+            myself: Vec<(&str, &str)>,
+        ) -> Self {
+            fn vec2map(vec: Vec<(&str, &str)>) -> HashMap<OsString, OsString> {
+                let mut map = HashMap::new();
+                for (key, val) in vec {
+                    map.insert(OsString::from(key), OsString::from(val));
+                }
+                map
+            }
+            All {
+                external: vec2map(external),
+                snap: vec2map(snap),
+                myself: vec2map(myself),
+            }
+        }
+    }
+
+    struct MockVariable {
+        name: &'static str,
+        external: Option<&'static str>,
+        snap: Option<&'static str>,
+        myself: Option<&'static str>,
+    }
+
+    fn mock_var_map(vec: Vec<MockVariable>) -> HashMap<OsString, Variable> {
+        let mut map = HashMap::new();
+        for i in vec {
+            map.insert(
+                OsString::from(i.name),
+                Variable::new(
+                    i.external.map(OsString::from),
+                    i.snap.map(OsString::from),
+                    i.myself.map(OsString::from),
+                ),
+            );
+        }
+        map
+    }
+
+    #[test]
+    fn consolidates_single_variable() {
+        let envs = All::mock(
+            vec![("FOO", "external")],
+            vec![("FOO", "snap")],
+            vec![("FOO", "myself")],
+        );
+        assert_eq!(
+            envs.consolidate(),
+            mock_var_map(vec![MockVariable {
+                name: "FOO",
+                external: Some("external"),
+                snap: Some("snap"),
+                myself: Some("myself"),
+            },])
+        );
+    }
+
+    #[test]
+    fn consolidates_varibale_only_in_one_env() {
+        let envs = All::mock(
+            vec![("FOO", "external")],
+            vec![("BAR", "snap")],
+            vec![("BAZ", "myself")],
+        );
+        assert_eq!(
+            envs.consolidate(),
+            mock_var_map(vec![
+                MockVariable {
+                    name: "FOO",
+                    external: Some("external"),
+                    snap: None,
+                    myself: None,
+                },
+                MockVariable {
+                    name: "BAR",
+                    external: None,
+                    snap: Some("snap"),
+                    myself: None,
+                },
+                MockVariable {
+                    name: "BAZ",
+                    external: None,
+                    snap: None,
+                    myself: Some("myself"),
+                },
+            ])
+        );
+    }
+
+    #[test]
+    fn consolidates_multiple_variables() {
+        let envs = All::mock(
+            vec![("FOO", "1"), ("BAR", "1")],
+            vec![("FOO", "1")],
+            vec![("BAR", "2")],
+        );
+        assert_eq!(
+            envs.consolidate(),
+            mock_var_map(vec![
+                MockVariable {
+                    name: "FOO",
+                    external: Some("1"),
+                    snap: Some("1"),
+                    myself: None,
+                },
+                MockVariable {
+                    name: "BAR",
+                    external: Some("1"),
+                    snap: None,
+                    myself: Some("2"),
+                },
+            ])
+        );
     }
 }
