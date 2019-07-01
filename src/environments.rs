@@ -69,7 +69,7 @@ impl All {
         }
     }
 
-    fn consolidate(&self) -> HashMap<OsString, Variable> {
+    pub fn consolidate(&self) -> HashMap<OsString, Variable> {
         let mut result = HashMap::new();
         for key in self
             .external

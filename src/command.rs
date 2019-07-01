@@ -1,4 +1,4 @@
-use std::ffi::{OsStr, OsString};
+use std::ffi::OsStr;
 
 /// Runs a command and returns it's exit code
 pub fn run(
