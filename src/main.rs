@@ -19,7 +19,11 @@ fn get_help_text() -> String {
 
 Options:
   -h, --help        Print this help message and exit
-  -v, --version     Print the version and exit",
+  -v, --version     Print the version and exit
+  -s, --script      Generate a script that sets up the environment and write it to stdout
+                    Output consists of lines in the following two formats:
+                      export VARIABLE=VALUE
+                      unset VARIABLE",
         env!("CARGO_PKG_NAME"),
         env!("CARGO_PKG_DESCRIPTION")
     );
@@ -50,6 +54,34 @@ fn run_command_outside_snap(
     }
 }
 
+fn varibale_list_to_setup_script(vars: &Vec<(OsString, Option<OsString>)>) -> String {
+    use std::fmt::Write;
+    let mut setters = String::new();
+    let mut unsetters = String::new();
+    for (name, value) in vars {
+        match (name.to_str(), value) {
+            (Some(name), Some(value)) =>
+                match value.to_str() {
+                    Some(value) => write!(&mut setters, "export {}={}\n", name, value).unwrap(),
+                    None => eprintln!("Variable {:?} is not included because it's value {:?} includes invalid unicode", name, value.to_string_lossy()),
+                },
+            (Some(name), None) => write!(&mut unsetters, "unset {}\n", name).unwrap(),
+            (None, _) => eprintln!("Variable {:?} is not included because it's name includes invalid unicode", name.to_string_lossy()),
+        }
+    }
+    format!("{}{}", setters, unsetters)
+}
+
+fn print_setup_script() {
+    match get_variables() {
+        Ok(vars) => {
+            let script = varibale_list_to_setup_script(&vars);
+            println!("{}", &script)
+        },
+        Err(e) => eprintln!("snap-out: {}", e),
+    }
+}
+
 fn main() {
     let parsed = options::parse(std::env::args());
     match parsed {
@@ -63,6 +95,10 @@ fn main() {
         }
         options::ShowVersion => {
             println!("{} v{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
+            std::process::exit(0);
+        }
+        options::ShowScript => {
+            print_setup_script();
             std::process::exit(0);
         }
         options::Error(e) => {

@@ -3,6 +3,7 @@ pub use Parsed::*;
 #[derive(Debug, PartialEq)]
 pub enum Parsed {
     RunCommand { command: String, args: Vec<String> },
+    ShowScript,
     ShowHelp,
     ShowVersion,
     Error(String),
@@ -19,6 +20,8 @@ pub fn parse(args: impl std::iter::Iterator<Item = impl AsRef<str>>) -> Parsed {
                 Parsed::ShowHelp
             } else if command == "--version" || command == "-v" {
                 Parsed::ShowVersion
+            } else if command == "--script" || command == "-s" {
+                Parsed::ShowScript
             } else {
                 Parsed::Error(format!("Unknown argument {}", command))
             }
@@ -72,6 +75,15 @@ mod tests {
             Parsed::ShowVersion,
         );
         assert_eq!(parse(vec!["snap-out", "-v"].iter()), Parsed::ShowVersion,);
+    }
+
+    #[test]
+    fn parses_show_script() {
+        assert_eq!(
+            parse(vec!["snap-out", "--script"].iter()),
+            Parsed::ShowScript,
+        );
+        assert_eq!(parse(vec!["snap-out", "-s"].iter()), Parsed::ShowScript,);
     }
 
     #[test]
