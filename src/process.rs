@@ -24,7 +24,7 @@ impl ProcfsProcess {
 impl Process for ProcfsProcess {
     fn get_parent(&self) -> Result<Option<Box<Process>>, Box<Error>> {
         let parent_pid = self.process.stat.ppid;
-        if parent_pid == 0 {
+        if parent_pid <= 1 {
             Ok(None)
         } else {
             Ok(Some(Box::new(ProcfsProcess {
