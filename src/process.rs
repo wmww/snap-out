@@ -3,21 +3,26 @@ extern crate procfs;
 use std::collections::HashMap;
 use std::error::Error;
 use std::ffi::OsString;
+use std::rc::Rc;
 
 pub trait Process {
     fn get_parent(&self) -> Result<Option<Box<Process>>, Box<Error>>;
-    fn get_env(&self) -> Result<HashMap<OsString, OsString>, Box<Error>>;
+    fn get_env(&self) -> Rc<HashMap<OsString, OsString>>;
 }
 
 pub struct ProcfsProcess {
     process: procfs::Process,
+    env: Rc<HashMap<OsString, OsString>>,
 }
 
 impl ProcfsProcess {
+    pub fn from_procfs_process(process: procfs::Process) -> Result<Self, Box<Error>> {
+        let env = Rc::new(process.environ()?);
+        Ok(Self { process, env })
+    }
+
     pub fn myself() -> Result<Self, Box<Error>> {
-        Ok(Self {
-            process: procfs::Process::myself()?,
-        })
+        Self::from_procfs_process(procfs::Process::myself()?)
     }
 }
 
@@ -27,14 +32,14 @@ impl Process for ProcfsProcess {
         if parent_pid <= 1 {
             Ok(None)
         } else {
-            Ok(Some(Box::new(ProcfsProcess {
-                process: procfs::Process::new(parent_pid)?,
-            })))
+            let parent_procfs = procfs::Process::new(parent_pid)?;
+            let parent_process = Self::from_procfs_process(parent_procfs)?;
+            Ok(Some(Box::new(parent_process)))
         }
     }
 
-    fn get_env(&self) -> Result<HashMap<OsString, OsString>, Box<Error>> {
-        Ok(self.process.environ()?)
+    fn get_env(&self) -> Rc<HashMap<OsString, OsString>> {
+        self.env.clone()
     }
 }
 
@@ -75,8 +80,8 @@ pub mod mock {
                 .map(|p| Box::new((**p).clone()) as Box<Process>))
         }
 
-        fn get_env(&self) -> Result<HashMap<OsString, OsString>, Box<Error>> {
-            Ok((*self.env).clone())
+        fn get_env(&self) -> Rc<HashMap<OsString, OsString>> {
+            self.env.clone()
         }
     }
 }
@@ -128,7 +133,7 @@ mod tests {
     #[test]
     fn correctly_detects_env_vars() {
         let myself = ProcfsProcess::myself().expect("Could not open myself process");
-        let mut map = myself.get_env().expect("Could not get environment");
+        let mut map = (*myself.get_env()).clone();
         for (key, val) in std::env::vars_os() {
             assert_maps_to(&map, &key, Some(&val));
             map.remove(&key);

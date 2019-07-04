@@ -3,6 +3,7 @@ use super::variable::Variable;
 use std::collections::HashMap;
 use std::error::Error;
 use std::ffi::{OsStr, OsString};
+use std::rc::Rc;
 
 /// The environment variable used to determine if the snap variables have been set
 const SNAP_SENTINEL_VAR: &str = "SNAP";
@@ -13,19 +14,19 @@ const SNAP_SENTINEL_VAR: &str = "SNAP";
 /// - The current process (has snap variables, plus modifications not made by the snap that we want)
 #[derive(Debug)]
 pub struct All {
-    external: HashMap<OsString, OsString>,
-    snap: HashMap<OsString, OsString>,
-    myself: HashMap<OsString, OsString>,
+    external: Rc<HashMap<OsString, OsString>>,
+    snap: Rc<HashMap<OsString, OsString>>,
+    myself: Rc<HashMap<OsString, OsString>>,
 }
 
 impl All {
     /// Detects relevant environments
     pub fn detect(process: &process::Process) -> Result<Self, Box<Error>> {
         enum EnvResult {
-            OutsideSnap(HashMap<OsString, OsString>),
+            OutsideSnap(Rc<HashMap<OsString, OsString>>),
             EdgeOfSnap {
-                outside: HashMap<OsString, OsString>,
-                inside: HashMap<OsString, OsString>,
+                outside: Rc<HashMap<OsString, OsString>>,
+                inside: Rc<HashMap<OsString, OsString>>,
             },
         }
 
@@ -34,16 +35,16 @@ impl All {
         // is alerady outside the snap
         fn traverse_up_to_snap_boundry(
             process: &process::Process,
-            env: HashMap<OsString, OsString>,
+            env: Rc<HashMap<OsString, OsString>>,
         ) -> Result<EnvResult, Box<std::error::Error>> {
             if !env.contains_key(OsStr::new(SNAP_SENTINEL_VAR)) {
-                Ok(EnvResult::OutsideSnap(env))
+                Ok(EnvResult::OutsideSnap(env.clone()))
             } else {
                 let parent_process = match process.get_parent()? {
                     Some(p) => p,
                     None => bail!("Could not find a process outside of the snap"),
                 };
-                let parent_env = parent_process.get_env()?;
+                let parent_env = parent_process.get_env();
                 match traverse_up_to_snap_boundry(&*parent_process, parent_env)? {
                     result @ EnvResult::EdgeOfSnap {
                         outside: _,
@@ -51,19 +52,19 @@ impl All {
                     } => Ok(result),
                     EnvResult::OutsideSnap(parent_env) => Ok(EnvResult::EdgeOfSnap {
                         outside: parent_env,
-                        inside: env,
+                        inside: env.clone(),
                     }),
                 }
             }
         }
 
-        let my_env = process.get_env()?;
+        let my_env = process.get_env();
         let result = traverse_up_to_snap_boundry(process, my_env.clone())?;
         match result {
             EnvResult::EdgeOfSnap { outside, inside } => Ok(All {
                 external: outside,
                 snap: inside,
-                myself: my_env,
+                myself: my_env.clone(),
             }),
             EnvResult::OutsideSnap(_) => bail!("Not inside a snap"),
         }
@@ -71,9 +72,8 @@ impl All {
 
     pub fn consolidate(&self) -> HashMap<OsString, Variable> {
         let mut result = HashMap::new();
-        for key in self
-            .external
-            .keys()
+        for key in std::iter::empty()
+            .chain(self.external.keys())
             .chain(self.snap.keys())
             .chain(self.myself.keys())
         {
@@ -184,9 +184,9 @@ mod tests {
                 map
             }
             All {
-                external: vec2map(external),
-                snap: vec2map(snap),
-                myself: vec2map(myself),
+                external: Rc::new(vec2map(external)),
+                snap: Rc::new(vec2map(snap)),
+                myself: Rc::new(vec2map(myself)),
             }
         }
     }
