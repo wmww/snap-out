@@ -31,7 +31,7 @@ Options:
 
 fn get_variables() -> Result<Vec<(OsString, Option<OsString>)>, Box<Error>> {
     let process = process::ProcfsProcess::myself()?;
-    let environments = environments::All::detect(&process)?;
+    let environments = environments::All::detect(Box::new(process))?;
     let vars = environments
         .consolidate()
         .iter()

@@ -21,53 +21,33 @@ pub struct All {
 
 impl All {
     /// Detects relevant environments
-    pub fn detect(process: &process::Process) -> Result<Self, Box<Error>> {
-        enum EnvResult {
-            OutsideSnap(Rc<HashMap<OsString, OsString>>),
-            EdgeOfSnap {
-                outside: Rc<HashMap<OsString, OsString>>,
-                inside: Rc<HashMap<OsString, OsString>>,
-            },
-        }
-
-        // Recursively traverses up the process tree until it finds one clean of snap variables
-        // Returns the environment directly outside of the snap, or None if the current environment
-        // is alerady outside the snap
-        fn traverse_up_to_snap_boundry(
-            process: &process::Process,
-            env: Rc<HashMap<OsString, OsString>>,
-        ) -> Result<EnvResult, Box<std::error::Error>> {
-            if !env.contains_key(OsStr::new(SNAP_SENTINEL_VAR)) {
-                Ok(EnvResult::OutsideSnap(env.clone()))
-            } else {
-                let parent_process = match process.get_parent()? {
-                    Some(p) => p,
-                    None => bail!("Could not find a process outside of the snap"),
-                };
-                let parent_env = parent_process.get_env();
-                match traverse_up_to_snap_boundry(&*parent_process, parent_env)? {
-                    result @ EnvResult::EdgeOfSnap {
-                        outside: _,
-                        inside: _,
-                    } => Ok(result),
-                    EnvResult::OutsideSnap(parent_env) => Ok(EnvResult::EdgeOfSnap {
-                        outside: parent_env,
-                        inside: env.clone(),
-                    }),
-                }
+    pub fn detect(mut process: Box<process::Process>) -> Result<Self, Box<Error>> {
+        let mut envs = Vec::new();
+        loop {
+            envs.push(process.get_env());
+            if !envs
+                .last()
+                .unwrap()
+                .contains_key(OsStr::new(SNAP_SENTINEL_VAR))
+            {
+                break;
+            }
+            process = match process.get_parent()? {
+                Some(p) => p,
+                None => bail!("Could not find a process outside of the snap"),
             }
         }
-
-        let my_env = process.get_env();
-        let result = traverse_up_to_snap_boundry(process, my_env.clone())?;
-        match result {
-            EnvResult::EdgeOfSnap { outside, inside } => Ok(All {
-                external: outside,
-                snap: inside,
-                myself: my_env.clone(),
-            }),
-            EnvResult::OutsideSnap(_) => bail!("Not inside a snap"),
+        if envs.len() < 2 {
+            bail!("Not inside a snap");
         }
+        let myself = envs[0].clone();
+        let external = envs.last().unwrap().clone();
+        let snap = envs.iter().rev().skip(1).next().unwrap().clone();
+        Ok(All {
+            external,
+            snap,
+            myself,
+        })
     }
 
     pub fn consolidate(&self) -> HashMap<OsString, Variable> {
@@ -109,7 +89,7 @@ mod tests {
             vec![("USER", "alice"), ("OUTSIDE", "1")],
             vec![("USER", "alice"), ("SNAP", "/snap"), ("INSIDE", "2")],
         ]);
-        let result = All::detect(&process);
+        let result = All::detect(Box::new(process));
         if let Ok(envs) = result {
             assert_maps_to(&envs.external, "OUTSIDE", Some("1"));
             assert_maps_to(&envs.external, "INSIDE", None);
@@ -133,7 +113,7 @@ mod tests {
             vec![("USER", "alice"), ("SNAP", "/snap")],
             vec![("USER", "alice"), ("SNAP", "/snap"), ("MYSELF", "3")],
         ]);
-        let result = All::detect(&process);
+        let result = All::detect(Box::new(process));
         if let Ok(envs) = result {
             assert_maps_to(&envs.external, "OUTSIDE", Some("1"));
             assert_maps_to(&envs.snap, "EDGE", Some("2"));
@@ -149,7 +129,7 @@ mod tests {
             vec![("USER", "alice")],
             vec![("USER", "alice"), ("DISPLAY", ":0")],
         ]);
-        let result = All::detect(&process);
+        let result = All::detect(Box::new(process));
         if let Ok(result) = result {
             panic!("Should have detected it was not in the snap: {:#?}", result)
         }
@@ -161,7 +141,7 @@ mod tests {
             vec![("USER", "alice"), ("SNAP", "/snap")],
             vec![("USER", "alice"), ("DISPLAY", ":0"), ("SNAP", "/snap")],
         ]);
-        let result = All::detect(&process);
+        let result = All::detect(Box::new(process));
         if let Ok(result) = result {
             panic!(
                 "Should have been unable to find the edge of the snap: {:#?}",
