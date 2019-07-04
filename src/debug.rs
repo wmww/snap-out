@@ -1,30 +1,29 @@
-use super::environments;
-use super::options;
-use super::process;
+use super::manager;
 use std::error::Error;
 use std::io::Write;
+use std::rc::Rc;
 
 pub const DEBUG_ENV_VAR: &str = "SNAP_OUT_DEBUG";
 pub const DEBUG_DUMP_PATH: &str = "/tmp/snap-out-debug.log";
 
-fn get_debugging_info() -> Result<String, Box<Error>> {
-    let process = process::ProcfsProcess::myself()?;
-    let environments = environments::All::detect(Box::new(process))?;
-    Ok(format!("{:#?}", environments))
+fn get_environment_info(manager: &mut manager::Manager) -> Result<String, Rc<Error>> {
+    Ok(format!("{:#?}", *manager.get_environments_lazy()?))
 }
 
-fn dump_debugging_info(options: &options::Parsed) -> Result<(), Box<Error>> {
+fn dump_debugging_info(manager: &mut manager::Manager) -> Result<(), Box<Error>> {
     let mut file = std::fs::OpenOptions::new()
         .create(true)
         .write(true)
         .append(true)
         .open(DEBUG_DUMP_PATH)?;
-    let info = match get_debugging_info() {
+    let info = match get_environment_info(manager) {
         Ok(s) => s,
         Err(e) => format!("Error: {}", e),
     };
-    let vars = super::get_variables()?;
-    let script = super::varibale_list_to_setup_script(&vars);
+    let script = match manager.get_setup_script_lazy() {
+        Ok(s) => s,
+        Err(e) => Rc::new(format!("Error: {}", e)),
+    };
     let time = match std::process::Command::new("date").output() {
         Ok(o) => String::from(String::from_utf8_lossy(&o.stdout)),
         Err(e) => String::from(e.description()),
@@ -41,7 +40,7 @@ Needed variable modifications:
 _________________________________________
 ",
         env!("CARGO_PKG_NAME"),
-        options,
+        manager.get_options(),
         time,
         info,
         script,
@@ -50,9 +49,9 @@ _________________________________________
     Ok(())
 }
 
-pub fn dump_info_if_needed(options: &options::Parsed) {
+pub fn dump_info_if_needed(manager: &mut manager::Manager) {
     if let Ok(_) = std::env::var(DEBUG_ENV_VAR) {
-        if let Err(e) = dump_debugging_info(options) {
+        if let Err(e) = dump_debugging_info(manager) {
             eprintln!(
                 "{}: Failed to dump debugging info: {}",
                 env!("CARGO_PKG_NAME"),

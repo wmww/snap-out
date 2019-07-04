@@ -1,14 +1,16 @@
-use std::ffi::OsStr;
+use std::borrow::Borrow;
+use std::ffi::{OsStr, OsString};
 
 /// Runs a command and returns it's exit code
 pub fn run(
     cmd: &str,
-    args: impl IntoIterator<Item = impl AsRef<std::ffi::OsStr>>,
-    envs: impl IntoIterator<Item = (impl AsRef<OsStr>, Option<impl AsRef<OsStr>>)>,
+    args: impl IntoIterator<Item = impl AsRef<OsStr>>,
+    envs: impl IntoIterator<Item = impl Borrow<(OsString, Option<OsString>)>>,
 ) -> i32 {
     let mut command = std::process::Command::new(cmd);
     command.args(args);
-    for (key, val) in envs {
+    for var in envs {
+        let (key, val) = var.borrow();
         if let Some(val) = val {
             command.env(key, val);
         } else {
