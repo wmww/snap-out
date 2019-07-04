@@ -2,6 +2,7 @@
 extern crate simple_error;
 
 mod command;
+mod debug;
 mod environments;
 mod options;
 mod process;
@@ -12,10 +13,10 @@ use std::ffi::OsString;
 
 fn get_help_text() -> String {
     return format!(
-        "Usage: {0} [COMMAND] [ARGUMENTS]...
-       {0} [OPTION]
+        "Usage: {pkg} [COMMAND] [ARGUMENTS]...
+       {pkg} [OPTION]
 
-{1}
+{desc}
 
 Options:
   -h, --help        Print this help message and exit
@@ -23,9 +24,15 @@ Options:
   -s, --script      Generate a script that sets up the environment and write it to stdout
                     Output consists of lines in the following two formats:
                       export VARIABLE=VALUE
-                      unset VARIABLE",
-        env!("CARGO_PKG_NAME"),
-        env!("CARGO_PKG_DESCRIPTION")
+                      unset VARIABLE
+
+Environment variables:
+  {debug_var:<17} If set, dump debugging information to {debug_path}
+",
+        pkg = env!("CARGO_PKG_NAME"),
+        desc = env!("CARGO_PKG_DESCRIPTION"),
+        debug_var = debug::DEBUG_ENV_VAR,
+        debug_path = debug::DEBUG_DUMP_PATH,
     );
 }
 
@@ -47,7 +54,11 @@ fn run_command_outside_snap(
     match get_variables() {
         Ok(vars) => command::run(cmd, args, vars),
         Err(e) => {
-            eprintln!("snap-out: {}, running in unmodified environment", e);
+            eprintln!(
+                "{}: {}, running in unmodified environment",
+                env!("CARGO_PKG_NAME"),
+                e
+            );
             let no_vars: Vec<(&str, Option<&str>)> = Vec::new();
             command::run(cmd, args, no_vars)
         }
@@ -77,37 +88,36 @@ fn print_setup_script() {
         Ok(vars) => {
             let script = varibale_list_to_setup_script(&vars);
             println!("{}", &script)
-        },
-        Err(e) => eprintln!("snap-out: {}", e),
+        }
+        Err(e) => eprintln!("{}: {}", env!("CARGO_PKG_NAME"), e),
     }
 }
 
 fn main() {
     let parsed = options::parse(std::env::args());
-    match parsed {
-        options::RunCommand { command, args } => {
-            let exit_code = run_command_outside_snap(&command, args);
-            std::process::exit(exit_code);
-        }
+    let exit_code = match &parsed {
+        options::RunCommand { command, args } => run_command_outside_snap(command, args),
         options::ShowHelp => {
             println!("{}", get_help_text());
-            std::process::exit(0);
+            0
         }
         options::ShowVersion => {
             println!("{} v{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
-            std::process::exit(0);
+            0
         }
         options::ShowScript => {
             print_setup_script();
-            std::process::exit(0);
+            0
         }
         options::Error(e) => {
             eprintln!("Error parsing arguments: {}", e);
-            std::process::exit(1);
+            1
         }
         options::None => {
             eprintln!("No command to run, use --help for help");
-            std::process::exit(0);
+            0
         }
-    }
+    };
+    debug::dump_info_if_needed(&parsed);
+    std::process::exit(exit_code);
 }
