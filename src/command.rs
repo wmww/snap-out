@@ -1,6 +1,11 @@
 use std::borrow::Borrow;
 use std::ffi::{OsStr, OsString};
 
+#[allow(dead_code)]
+pub const NO_ARGS: std::iter::Empty<OsString> = std::iter::empty();
+#[allow(dead_code)]
+pub const NO_VARS: std::iter::Empty<(OsString, Option<OsString>)> = std::iter::empty();
+
 /// Runs a command and returns it's exit code
 pub fn run(
     cmd: &str,
@@ -51,8 +56,8 @@ mod tests {
         assert_eq!(
             run(
                 "true",
-                Vec::new() as Vec<&str>,
-                Vec::new() as Vec<(&str, Option<&str>)>
+                NO_ARGS,
+                NO_VARS,
             ),
             0
         );
@@ -63,8 +68,8 @@ mod tests {
         assert_eq!(
             run(
                 "false",
-                Vec::new() as Vec<&str>,
-                Vec::new() as Vec<(&str, Option<&str>)>
+                NO_ARGS,
+                NO_VARS,
             ),
             1
         );
@@ -76,7 +81,7 @@ mod tests {
             run(
                 "bash",
                 vec!["-c", "[ 3 -eq 3 ]"],
-                Vec::new() as Vec<(&str, Option<&str>)>
+                NO_VARS,
             ),
             0
         );
@@ -88,7 +93,7 @@ mod tests {
             run(
                 "bash",
                 vec!["-c", "[ 3 -eq 5 ]"],
-                Vec::new() as Vec<(&str, Option<&str>)>
+                NO_VARS,
             ),
             1
         );
@@ -98,15 +103,17 @@ mod tests {
     fn can_remove_variable() {
         let cmd = "bash";
         let args = vec!["-c", "[ -z $HOME ]"];
-        assert_eq!(run(&cmd, &args, Vec::new() as Vec<(&str, Option<&str>)>), 1);
-        assert_eq!(run(&cmd, &args, vec![("HOME", None as Option<&str>)]), 0);
+        let vars = vec![(OsString::from("HOME"), None)];
+        assert_eq!(run(&cmd, &args, NO_VARS), 1);
+        assert_eq!(run(&cmd, &args, vars), 0);
     }
 
     #[test]
     fn can_add_variable() {
         let cmd = "bash";
         let args = vec!["-c", "[ -z $FOO ]"];
-        assert_eq!(run(&cmd, &args, Vec::new() as Vec<(&str, Option<&str>)>), 0);
-        assert_eq!(run(&cmd, &args, vec![("FOO", Some("BAR"))]), 1);
+        let vars = vec![(OsString::from("FOO"), Some(OsString::from("BAR")))];
+        assert_eq!(run(&cmd, &args, NO_VARS), 0);
+        assert_eq!(run(&cmd, &args, vars), 1);
     }
 }

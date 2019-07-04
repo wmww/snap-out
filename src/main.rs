@@ -50,8 +50,7 @@ fn main() {
                         env!("CARGO_PKG_NAME"),
                         e
                     );
-                    let no_vars: Vec<(OsString, Option<OsString>)> = Vec::new();
-                    command::run(command, args, &no_vars)
+                    command::run(command, args, command::NO_VARS)
                 }
             }
         }
