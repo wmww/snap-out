@@ -53,50 +53,22 @@ mod tests {
 
     #[test]
     fn running_true_returns_0() {
-        assert_eq!(
-            run(
-                "true",
-                NO_ARGS,
-                NO_VARS,
-            ),
-            0
-        );
+        assert_eq!(run("true", NO_ARGS, NO_VARS,), 0);
     }
 
     #[test]
     fn running_false_returns_1() {
-        assert_eq!(
-            run(
-                "false",
-                NO_ARGS,
-                NO_VARS,
-            ),
-            1
-        );
+        assert_eq!(run("false", NO_ARGS, NO_VARS,), 1);
     }
 
     #[test]
     fn evaluates_true_bash_exp() {
-        assert_eq!(
-            run(
-                "bash",
-                vec!["-c", "[ 3 -eq 3 ]"],
-                NO_VARS,
-            ),
-            0
-        );
+        assert_eq!(run("bash", vec!["-c", "[ 3 -eq 3 ]"], NO_VARS,), 0);
     }
 
     #[test]
     fn evaluates_false_bash_exp() {
-        assert_eq!(
-            run(
-                "bash",
-                vec!["-c", "[ 3 -eq 5 ]"],
-                NO_VARS,
-            ),
-            1
-        );
+        assert_eq!(run("bash", vec!["-c", "[ 3 -eq 5 ]"], NO_VARS,), 1);
     }
 
     #[test]
