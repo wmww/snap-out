@@ -23,8 +23,10 @@ impl All {
     /// Detects relevant environments
     pub fn detect(mut process: Box<process::Process>) -> Result<Self, Box<Error>> {
         let mut envs = Vec::new();
+        let mut pids = Vec::new();
         loop {
             envs.push(process.get_env());
+            pids.push(process.get_pid());
             if !envs
                 .last()
                 .unwrap()
@@ -34,7 +36,10 @@ impl All {
             }
             process = match process.get_parent()? {
                 Some(p) => p,
-                None => bail!("Could not find a process outside of the snap"),
+                None => bail!(
+                    "Could not find a process outside of the snap (searched PIDs {:?})",
+                    pids
+                ),
             }
         }
         if envs.len() < 2 {

@@ -8,6 +8,7 @@ use std::rc::Rc;
 pub trait Process {
     fn get_parent(&self) -> Result<Option<Box<Process>>, Box<Error>>;
     fn get_env(&self) -> Rc<HashMap<OsString, OsString>>;
+    fn get_pid(&self) -> i32;
 }
 
 pub struct ProcfsProcess {
@@ -40,6 +41,10 @@ impl Process for ProcfsProcess {
 
     fn get_env(&self) -> Rc<HashMap<OsString, OsString>> {
         self.env.clone()
+    }
+
+    fn get_pid(&self) -> i32 {
+        self.process.pid()
     }
 }
 
@@ -82,6 +87,10 @@ pub mod mock {
 
         fn get_env(&self) -> Rc<HashMap<OsString, OsString>> {
             self.env.clone()
+        }
+
+        fn get_pid(&self) -> i32 {
+            1
         }
     }
 }
