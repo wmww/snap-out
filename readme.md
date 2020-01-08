@@ -34,6 +34,11 @@ Then you can run it from a script inside the snap with
 $SNAP/bin/snap-out
 ```
 
+## Testing
+```
+cargo test
+```
+
 ## Command Line Usage
 ```
 Usage: snap-out [COMMAND] [ARGUMENTS]...
