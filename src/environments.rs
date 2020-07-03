@@ -21,7 +21,7 @@ pub struct All {
 
 impl All {
     /// Detects relevant environments
-    pub fn detect(mut process: Box<process::Process>) -> Result<Self, Box<Error>> {
+    pub fn detect(mut process: Box<dyn process::Process>) -> Result<Self, Box<dyn Error>> {
         let mut envs = Vec::new();
         let mut pids = Vec::new();
         loop {

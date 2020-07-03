@@ -6,7 +6,7 @@ use std::ffi::OsString;
 use std::rc::Rc;
 
 pub trait Process {
-    fn get_parent(&self) -> Result<Option<Box<Process>>, Box<Error>>;
+    fn get_parent(&self) -> Result<Option<Box<dyn Process>>, Box<dyn Error>>;
     fn get_env(&self) -> Rc<HashMap<OsString, OsString>>;
     fn get_pid(&self) -> i32;
 }
@@ -17,18 +17,18 @@ pub struct ProcfsProcess {
 }
 
 impl ProcfsProcess {
-    pub fn from_procfs_process(process: procfs::Process) -> Result<Self, Box<Error>> {
+    pub fn from_procfs_process(process: procfs::Process) -> Result<Self, Box<dyn Error>> {
         let env = Rc::new(process.environ()?);
         Ok(Self { process, env })
     }
 
-    pub fn myself() -> Result<Self, Box<Error>> {
+    pub fn myself() -> Result<Self, Box<dyn Error>> {
         Self::from_procfs_process(procfs::Process::myself()?)
     }
 }
 
 impl Process for ProcfsProcess {
-    fn get_parent(&self) -> Result<Option<Box<Process>>, Box<Error>> {
+    fn get_parent(&self) -> Result<Option<Box<dyn Process>>, Box<dyn Error>> {
         let parent_pid = self.process.stat.ppid;
         if parent_pid <= 1 {
             Ok(None)
@@ -78,11 +78,11 @@ pub mod mock {
     }
 
     impl Process for MockProcess {
-        fn get_parent(&self) -> Result<Option<Box<Process>>, Box<Error>> {
+        fn get_parent(&self) -> Result<Option<Box<dyn Process>>, Box<dyn Error>> {
             Ok(self
                 .parent
                 .as_ref()
-                .map(|p| Box::new((**p).clone()) as Box<Process>))
+                .map(|p| Box::new((**p).clone()) as Box<dyn Process>))
         }
 
         fn get_env(&self) -> Rc<HashMap<OsString, OsString>> {
@@ -129,7 +129,7 @@ mod tests {
     fn can_traverse_to_top() {
         let mut process = Some(Box::new(
             ProcfsProcess::myself().expect("Could not open myself process"),
-        ) as Box<Process>);
+        ) as Box<dyn Process>);
         for _ in 0..200 {
             process = match process {
                 Some(p) => p.get_parent().expect("Could not get parent"),

@@ -6,11 +6,11 @@ use std::rc::Rc;
 pub const DEBUG_ENV_VAR: &str = "SNAP_OUT_DEBUG";
 pub const DEBUG_DUMP_PATH: &str = "/tmp/snap-out-debug.log";
 
-fn get_environment_info(manager: &mut manager::Manager) -> Result<String, Rc<Error>> {
+fn get_environment_info(manager: &mut manager::Manager) -> Result<String, Rc<dyn Error>> {
     Ok(format!("{:#?}", *manager.get_environments_lazy()?))
 }
 
-fn dump_debugging_info(manager: &mut manager::Manager) -> Result<(), Box<Error>> {
+fn dump_debugging_info(manager: &mut manager::Manager) -> Result<(), Box<dyn Error>> {
     let mut file = std::fs::OpenOptions::new()
         .create(true)
         .write(true)
@@ -26,7 +26,7 @@ fn dump_debugging_info(manager: &mut manager::Manager) -> Result<(), Box<Error>>
     };
     let time = match std::process::Command::new("date").output() {
         Ok(o) => String::from(String::from_utf8_lossy(&o.stdout)),
-        Err(e) => String::from(e.description()),
+        Err(e) => e.to_string(),
     };
     let buffer = format!(
         "

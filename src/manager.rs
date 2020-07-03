@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::rc::Rc;
 
-type GenericResult<T> = Result<Rc<T>, Rc<Error>>;
+type GenericResult<T> = Result<Rc<T>, Rc<dyn Error>>;
 type CachedResult<T> = Option<GenericResult<T>>;
 
 pub struct Manager {
