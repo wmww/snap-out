@@ -12,35 +12,42 @@ There is a problem with running external programs however. Snaps ship their own 
 
 Snap Out solves this problem by detecting at runtime what varibles were set by the snap, and restoring them to their previous state. You simply send it a command to run and it launches it in a child process with the patched environment.
 
-## Buidling
+## Building
 
 ### Manually
-```
+
+```shell
 cargo build
 ./target/debug/snap-out -v
 ```
 
 ### Inside a Snap
+
 Add the following part to your snapcraft.yaml:
-```
+
+```yaml
 snap-out:
   # Used to launch external programs without snap environment variables set
   plugin: rust
   source: https://github.com/wmww/snap-out.git
   source-depth: 1
 ```
+
 Then you can run it from a script inside the snap with
-```
+
+```shell
 $SNAP/bin/snap-out
 ```
 
 ## Testing
-```
+
+```shell
 cargo test
 ```
 
 ## Command Line Usage
-```
+
+```txt
 Usage: snap-out [COMMAND] [ARGUMENTS]...
        snap-out [OPTION]
 
